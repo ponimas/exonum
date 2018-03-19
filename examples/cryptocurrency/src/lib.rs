@@ -61,7 +61,10 @@ use router::Router;
 const SERVICE_ID: u16 = 1;
 
 /// Initial balance of a newly created wallet.
-const INIT_BALANCE: u64 = 100;
+const REFILL_AMMOUNT: u64 = 100;
+
+/// Refill timeout
+const REFILL_TIMEOUT: u64 = 5 * 60 * 1000;
 
 // // // // // // // // // // PERSISTENT DATA // // // // // // // // // //
 
@@ -79,6 +82,8 @@ encoding_struct! {
         name: &str,
         /// Current balance.
         balance: u64,
+        /// latest refillment timestamp
+        refill_ts: u64,
     }
 }
 
@@ -87,15 +92,22 @@ impl Wallet {
     /// Returns a copy of this wallet with the balance increased by the specified amount.
     pub fn increase(self, amount: u64) -> Self {
         let balance = self.balance() + amount;
-        Self::new(self.pub_key(), self.name(), balance)
+        Self::new(self.pub_key(), self.name(), balance, self.refill_ts())
     }
 
     /// Returns a copy of this wallet with the balance decreased by the specified amount.
     pub fn decrease(self, amount: u64) -> Self {
         debug_assert!(self.balance() >= amount);
         let balance = self.balance() - amount;
-        Self::new(self.pub_key(), self.name(), balance)
+        Self::new(self.pub_key(), self.name(), balance, self.refill_ts())
     }
+
+    /// Returns a copy of this wallet with the balance increased by 100 and updated refill_ts.
+    pub fn refill(self) -> Self {
+        let balance = self.balance() + REFILL_AMMOUNT;
+        Self::new(self.pub_key(), self.name(), balance, self.refill_ts())
+    }
+
 }
 
 // // // // // // // // // // DATA LAYOUT // // // // // // // // // //
@@ -153,6 +165,16 @@ transactions! {
             name: &str,
         }
 
+        /// Transaction type for refilling a wallet.
+        ///
+        /// See [the `Transaction` trait implementation](#impl-Transaction) for details how
+        /// `TxRefill` transactions are processed.
+        struct TxRefillWallet {
+            /// Public key of the wallet's owner.
+            pub_key: &PublicKey,
+        }
+
+
         /// Transaction type for transferring tokens between two wallets.
         ///
         /// See [the `Transaction` trait implementation](#impl-Transaction) for details how
@@ -187,8 +209,30 @@ impl Transaction for TxCreateWallet {
     fn execute(&self, view: &mut Fork) -> ExecutionResult {
         let mut schema = CurrencySchema::new(view);
         if schema.wallet(self.pub_key()).is_none() {
-            let wallet = Wallet::new(self.pub_key(), self.name(), INIT_BALANCE);
+            let wallet = Wallet::new(self.pub_key(), self.name(), REFILL_AMMOUNT, 0);
             println!("Create the wallet: {:?}", wallet);
+            schema.wallets_mut().put(self.pub_key(), wallet);
+        }
+        Ok(())
+    }
+}
+
+impl Transaction for TxRefillWallet {
+    /// Verifies integrity of the transaction by checking the transaction
+    /// signature.
+    fn verify(&self) -> bool {
+        self.verify_signature(self.pub_key())
+    }
+
+    /// If a wallet with the specified public key is registered and 5 minutes
+    /// timeout since last refill has passed  then refills it with balance of 100.
+    /// Otherwise, performs no op.
+    fn execute(&self, view: &mut Fork) -> ExecutionResult {
+        let mut schema = CurrencySchema::new(view);
+        if let Some(wallet) = schema.wallet(self.pub_key()) {
+            let refill_ts = wallet.refill_ts();
+            let wallet = wallet.refill();
+            println!("Wallet refilled: {:?}",  wallet);
             schema.wallets_mut().put(self.pub_key(), wallet);
         }
         Ok(())

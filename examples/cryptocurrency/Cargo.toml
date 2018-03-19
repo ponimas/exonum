@@ -10,7 +10,9 @@ license = "Apache-2.0"
 travis-ci = { repository = "exonum/exonum" }
 
 [dependencies]
-exonum = { version = "0.6.0", path = "../../exonum" }
+exonum = "0.6.0"
+exonum-time = "0.6"
+exonum-configuration = "0.6"
 iron = "0.6.0"
 bodyparser = "0.8.0"
 router = "0.6.0"
