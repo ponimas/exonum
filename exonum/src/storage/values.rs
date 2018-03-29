@@ -16,6 +16,7 @@
 
 use byteorder::{ByteOrder, LittleEndian};
 use chrono::{DateTime, Utc, NaiveDateTime};
+use uuid::Uuid;
 
 use std::mem;
 use std::borrow::Cow;
@@ -290,6 +291,18 @@ impl StorageValue for Round {
         Round(u32::from_bytes(value))
     }
 }
+
+impl StorageValue for Uuid {
+    fn into_bytes(self) -> Vec<u8> {
+        Uuid::as_bytes(&self).iter().cloned().collect()
+
+    }
+
+    fn from_bytes(value: Cow<[u8]>) -> Self {
+        Uuid::from_bytes(&value.into_owned()).unwrap()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

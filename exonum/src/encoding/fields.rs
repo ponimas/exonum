@@ -17,6 +17,7 @@
 use std::mem;
 use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
 use chrono::{DateTime, Utc, TimeZone};
+use uuid::Uuid;
 
 use byteorder::{ByteOrder, LittleEndian};
 
@@ -328,6 +329,33 @@ impl<'a> Field<'a> for SocketAddr {
             }
         }
         LittleEndian::write_u16(&mut buffer[to as usize - 2..to as usize], self.port());
+    }
+
+    fn check(
+        _: &'a [u8],
+        from: CheckedOffset,
+        to: CheckedOffset,
+        latest_segment: CheckedOffset,
+    ) -> Result {
+        debug_assert_eq!((to - from)?.unchecked_offset(), Self::field_size());
+        Ok(latest_segment)
+    }
+}
+
+
+impl<'a> Field<'a> for Uuid {
+    fn field_size() -> Offset {
+        16
+    }
+
+    unsafe fn read(buffer: &'a [u8], from: Offset, to: Offset) -> Uuid {
+        let mut bytes = [0u8; 16];
+        bytes.copy_from_slice(&buffer[from as usize..to as usize]);
+        Uuid::from_bytes(&bytes).unwrap()
+    }
+
+    fn write(&self, buffer: &mut Vec<u8>, from: Offset, to: Offset) {
+        buffer[from as usize..to as usize].copy_from_slice(self.as_bytes());
     }
 
     fn check(

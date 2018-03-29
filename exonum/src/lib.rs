@@ -44,6 +44,7 @@ extern crate vec_map;
 extern crate colored;
 extern crate term;
 extern crate chrono;
+extern crate uuid;
 #[macro_use(crate_version, crate_authors)]
 extern crate clap;
 extern crate hyper;

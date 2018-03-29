@@ -35,6 +35,8 @@ use helpers::{Height, Round, ValidatorId};
 use messages::RawMessage;
 use encoding::{Field, Offset};
 use super::WriteBufferWrapper;
+
+use uuid::Uuid;
 // TODO: should we implement serialize for: `SecretKey`, `Seed` (ECR-156)?
 
 macro_rules! impl_default_deserialize_owned {
@@ -224,6 +226,23 @@ impl ExonumJson for SocketAddr {
         to: Offset,
     ) -> Result<(), Box<Error>> {
         let addr: SocketAddr = ::serde_json::from_value(value.clone())?;
+        buffer.write(from, to, addr);
+        Ok(())
+    }
+
+    fn serialize_field(&self) -> Result<Value, Box<Error + Send + Sync>> {
+        Ok(serde_json::to_value(&self)?)
+    }
+}
+
+impl ExonumJson for Uuid {
+    fn deserialize_field<B: WriteBufferWrapper>(
+        value: &Value,
+        buffer: &mut B,
+        from: Offset,
+        to: Offset,
+    ) -> Result<(), Box<Error>> {
+        let addr: Uuid = ::serde_json::from_value(value.clone())?;
         buffer.write(from, to, addr);
         Ok(())
     }
